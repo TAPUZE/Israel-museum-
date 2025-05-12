@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Museum Tour Mockup v2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Basic styling */
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none;
+            background-color: #f3f4f6;
+        }
+        /* Screen transitions */
+        .screen {
+            display: none;
+            min-height: 100vh;
+            animation: fadeIn 0.4s ease-in-out;
+            width: 100%;
+        }
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Selected button style */
+        .selected {
+            background-color: #2563eb !important; /* Blue-600 */
+            color: white !important;
+            border-color: #1d4ed8 !important; /* Blue-700 */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transform: scale(1.02);
+        }
+        /* Base button style */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 0.75rem 1rem; border-radius: 0.5rem; font-weight: 600;
+            transition: all 0.2s ease-in-out; cursor: pointer;
+            border: 1px solid transparent; text-align: center;
+        }
+        .btn-primary { background-color: #3b82f6; color: white; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2); }
+        .btn-primary:hover { background-color: #2563eb; }
+        .btn-primary:disabled { background-color: #9ca3af; opacity: 0.7; cursor: not-allowed; box-shadow: none; }
+        .btn-secondary { background-color: #e5e7eb; color: #374151; border-color: #d1d5db; }
+        .btn-secondary:hover { background-color: #d1d5db; }
+        .btn-action { border-radius: 0.5rem; padding: 0.6rem 1rem; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .btn-action i { margin-right: 0.5rem; }
+        .btn-speak { background: none; border: none; color: #6b7280; cursor: pointer; padding: 0.25rem; margin-left: 0.5rem; font-size: 0.9rem; transition: color 0.2s; }
+        .btn-speak:hover { color: #3b82f6; }
+        .btn-speak.speaking { color: #ef4444; } /* Red when speaking */
+
+        /* Map point style */
+        .map-point {
+            position: absolute; width: 32px; height: 32px;
+            background-color: #d1d5db; /* Gray-300 (inactive by default) */
+            border: 2px solid white; border-radius: 50%;
+            cursor: not-allowed; /* Default to not allowed */
+            display: flex; align-items: center; justify-content: center;
+            color: #6b7280; /* Gray-500 */
+            font-weight: bold; font-size: 0.9rem;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            z-index: 10; opacity: 0.6;
+        }
+        .map-point.active-tour { /* Point is part of the current tour */
+            background-color: #ef4444; /* Red-500 */
+            color: white;
+            cursor: pointer;
+            opacity: 1;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+        .map-point.active-tour:hover {
+            transform: scale(1.25);
+            background-color: #dc2626; /* Red-600 */
+        }
+        .map-point.visited { /* Point has been visited */
+             background-color: #10b981; /* Emerald-500 */
+             color: white;
+             opacity: 0.8;
+        }
+
+        /* AI response box style */
+        .ai-response {
+            display: none; border-left: 4px solid;
+            background-color: #f9fafb; padding: 1rem; margin-top: 0.75rem;
+            border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .ai-response p { color: #374151; }
+        .ai-response .response-title { font-weight: 600; font-size: 0.875rem; margin-bottom: 0.25rem; display: flex; align-items: center; justify-content: space-between; }
+
+        /* Connection visualization style */
+        .connection-vis {
+            display: flex; align-items: center; justify-content: space-around;
+            gap: 0.5rem; padding: 0.75rem; background-color: white;
+            border-radius: 0.375rem; border: 1px solid #d1d5db; margin-top: 0.5rem;
+        }
+        /* Ensure connection images are consistently sized */
+        .connection-vis img {
+             width: 60px; /* Slightly larger */
+             height: 60px;
+             border-radius: 0.375rem;
+             object-fit: cover; /* Ensure image covers the area */
+             border: 1px solid #e5e7eb;
+             background-color: #f3f4f6; /* Placeholder bg */
+         }
+        .connection-vis .connector { font-size: 1.5rem; font-weight: bold; color: #16a34a; flex-shrink: 0; }
+
+        /* Trivia Section Styling */
+        .trivia-section {
+            margin-top: 1.5rem; /* mt-6 */
+            padding-top: 1rem; /* pt-4 */
+            border-top: 1px dashed #d1d5db; /* border-t border-dashed border-gray-300 */
+        }
+        .trivia-question { font-weight: 600; color: #4b5563; /* gray-600 */ margin-bottom: 0.75rem; }
+        .trivia-options button {
+            display: block; width: 100%; text-align: left;
+            margin-bottom: 0.5rem; /* mb-2 */
+            background-color: #f3f4f6; /* gray-100 */
+            border: 1px solid #e5e7eb; /* gray-200 */
+            color: #374151; /* gray-700 */
+            padding: 0.5rem 0.75rem; /* py-2 px-3 */
+            border-radius: 0.375rem; /* rounded-md */
+            transition: background-color 0.2s;
+        }
+        .trivia-options button:hover:not(:disabled) { background-color: #e5e7eb; /* gray-200 */ }
+        .trivia-options button:disabled { opacity: 0.7; cursor: not-allowed; }
+        .trivia-feedback { margin-top: 0.75rem; font-size: 0.875rem; /* text-sm */ font-weight: 500; padding: 0.5rem; border-radius: 0.375rem; }
+        .feedback-correct { background-color: #dcfce7; /* green-100 */ color: #166534; /* green-800 */ border: 1px solid #bbf7d0; /* green-200 */ }
+        .feedback-incorrect { background-color: #fee2e2; /* red-100 */ color: #991b1b; /* red-800 */ border: 1px solid #fecaca; /* red-200 */ }
+
+        /* General App Styling */
+        #app-container { max-width: 420px; margin: auto; background-color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.1); min-height: 100vh; overflow: hidden; }
+        /* Header common style */
+        .screen-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid #e5e7eb; background-color: #f9fafb; }
+         .screen-header h1 { font-size: 1.125rem; font-weight: 600; color: #1f2937; text-align: center; flex-grow: 1; }
+         .back-btn { background: none; border: none; color: #3b82f6; font-size: 1.25rem; cursor: pointer; padding: 0.25rem; line-height: 1; }
+         .back-btn:hover { color: #2563eb; }
+         .header-spacer { width: 40px; flex-shrink: 0; }
+         #tts-unavailable { display: none; color: #7f1d1d; background-color: #fef2f2; padding: 0.5rem; border-radius: 0.375rem; font-size: 0.8rem; text-align: center; margin: 0.5rem 1rem; }
+
+         /* Fallback styling for images */
+         img {
+            background-color: #e5e7eb; /* gray-200 */
+            display: block; /* Prevent extra space below */
+         }
+         /* Add a simple error style */
+         img.error {
+            border: 2px dashed #f87171; /* red-400 */
+            padding: 1rem;
+            position: relative;
+         }
+         img.error::after {
+            content: 'Image not found (' attr(alt) ')';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #991b1b; /* red-800 */
+            font-size: 0.8rem;
+            text-align: center;
+         }
+
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="app-container">
+
+        <div id="start-screen" class="screen active p-6 flex flex-col justify-center items-center text-center">
+            <img src="./images/museum_logo.png" alt="Museum Logo" class="w-28 h-28 rounded-full mb-6 shadow-md border-4 border-white" onerror="this.onerror=null; this.src='https://placehold.co/150x150/cccccc/333333?text=Logo+Error'; this.classList.add('error');">
+            <h1 class="text-3xl font-bold mb-2 text-gray-800">AI Museum Guide</h1>
+            <p class="text-gray-600 mb-8">Your Personalized Tour of the Israel Museum 🇮🇱</p>
+
+            <div class="mb-6 w-full max-w-xs">
+                <h2 class="text-lg font-semibold mb-3 text-gray-700">Who is this tour for?</h2>
+                <div class="flex flex-col gap-3">
+                    <button data-group="age" data-value="Child" class="age-btn btn btn-secondary w-full">Child (6-12) 🧒</button>
+                    <button data-group="age" data-value="Teen" class="age-btn btn btn-secondary w-full">Teen (13-17) 🧑‍🎓</button>
+                    <button data-group="age" data-value="Adult" class="age-btn btn btn-secondary w-full">Adult (18+) 🧑‍💼</button>
+                </div>
+            </div>
+
+            <div class="mb-8 w-full max-w-xs">
+                <h2 class="text-lg font-semibold mb-3 text-gray-700">What interests you?</h2>
+                <div class="flex flex-col gap-3">
+                    <button data-group="theme" data-value="Archaeology" class="theme-btn btn btn-secondary w-full">Archaeology Wonders 🏺</button>
+                    <button data-group="theme" data-value="Modern Art" class="theme-btn btn btn-secondary w-full">Modern Art Insights 🎨</button>
+                    <button data-group="theme" data-value="Connections" class="theme-btn btn btn-secondary w-full">Hidden Connections 🔗</button>
+                </div>
+            </div>
+
+            <button id="start-tour-btn" class="btn btn-primary w-full max-w-xs shadow-lg" disabled>
+                Start Your Personalized Tour ✨
+            </button>
+            <p id="start-error" class="text-red-500 text-sm mt-3 h-4"></p>
+        </div>
+
+        <div id="map-screen" class="screen">
+            <div class="screen-header">
+                 <button id="back-to-start-btn" class="back-btn"><i class="fas fa-arrow-left"></i></button>
+                 <h1>Your Tour Map</h1>
+                 <div class="header-spacer"></div>
+            </div>
+            <div class="p-4 flex flex-col flex-grow">
+                <p class="text-center text-gray-600 mb-4 text-sm">Tap the colored dots to explore objects on your personalized route.</p>
+                <div id="map-container" class="relative w-full aspect-square bg-gray-200 rounded-lg overflow-hidden shadow-inner flex-grow">
+                    <img src="./images/museum_map.jpg" alt="Museum Map" class="absolute inset-0 w-full h-full object-cover" onerror="this.onerror=null; this.src='https://placehold.co/600x600/cccccc/333333?text=Map+Error'; this.classList.add('error');">
+
+                    <svg id="map-route-svg" class="absolute inset-0 w-full h-full" viewbox="0 0 100 100" preserveAspectRatio="none" style="z-index: 5;">
+                        <polyline id="map-route-line" points="" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4,3" stroke-linecap="round" stroke-linejoin="round"/>
+                     </svg>
+
+                    <div class="map-point" style="top: 15%; left: 20%;" data-object-id="object1">1</div>
+                    <div class="map-point" style="top: 30%; left: 45%;" data-object-id="object2">2</div>
+                    <div class="map-point" style="top: 25%; left: 75%;" data-object-id="object3">3</div>
+                    <div class="map-point" style="top: 55%; left: 15%;" data-object-id="object4">4</div>
+                    <div class="map-point" style="top: 60%; left: 50%;" data-object-id="object5">5</div>
+                    <div class="map-point" style="top: 50%; left: 80%;" data-object-id="object6">6</div>
+                    <div class="map-point" style="top: 80%; left: 30%;" data-object-id="object7">7</div>
+                    <div class="map-point" style="top: 75%; left: 65%;" data-object-id="object8">8</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="object-detail-screen" class="screen">
+             <div class="screen-header">
+                 <button id="back-to-map-btn" class="back-btn"><i class="fas fa-arrow-left"></i></button>
+                 <h1 id="object-detail-title">Object Details</h1>
+                 <div class="header-spacer"></div>
+             </div>
+             <div id="tts-unavailable" class="text-xs text-red-800 bg-red-100 p-2 rounded mx-4 my-2 text-center">Text-to-speech is not available on this browser. 🤷‍♀️</div>
+            <div id="object-content" class="flex-grow p-4 overflow-y-auto">
+                <img id="object-image" src="" alt="Object Image" class="w-full h-60 sm:h-72 object-cover rounded-lg mb-4 bg-gray-200 shadow-md border border-gray-200" onerror="this.onerror=null; this.src='https://placehold.co/400x280/cccccc/333333?text=Loading...%F0%9F%95%B3%EF%B8%8F'; this.classList.add('error');">
+
+                <div class="flex justify-between items-center mb-2">
+                    <h2 id="object-title" class="text-2xl font-bold text-gray-800">Object Title</h2>
+                    <button class="btn-speak speak-trigger" data-speak-target="object-title" title="Read title aloud">
+                        <i class="fas fa-volume-high"></i>
+                    </button>
+                </div>
+
+                <div class="flex justify-between items-start mb-5">
+                    <p id="object-description" class="text-gray-700 leading-relaxed flex-grow mr-2">Brief object description goes here...</p>
+                    <button class="btn-speak speak-trigger" data-speak-target="object-description" title="Read description aloud">
+                        <i class="fas fa-volume-high"></i>
+                    </button>
+                </div>
+
+
+                <div class="space-y-3">
+                    <button data-action="learnMore" class="action-btn btn w-full bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-300">
+                        <i class="fas fa-book-open fa-fw"></i> Learn More
+                    </button>
+                    <div id="response-learn-more" class="ai-response" style="border-color: #60a5fa;">
+                        <div class="response-title text-blue-700">
+                            <span>AI Insight:</span>
+                            <button class="btn-speak speak-trigger" data-speak-target="response-learn-more" title="Read insight aloud">
+                                <i class="fas fa-volume-high"></i>
+                            </button>
+                        </div>
+                        <p class="text-sm">Placeholder text for Learn More.</p>
+                    </div>
+
+                    <button data-action="relatedObjects" class="action-btn btn w-full bg-green-100 hover:bg-green-200 text-green-800 border-green-300">
+                        <i class="fas fa-link fa-fw"></i> Related Objects
+                    </button>
+                    <div id="response-related-objects" class="ai-response" style="border-color: #4ade80;">
+                         <div class="response-title text-green-700">
+                            <span>AI Connection:</span>
+                            <button class="btn-speak speak-trigger" data-speak-target="response-related-objects" title="Read connection aloud">
+                                <i class="fas fa-volume-high"></i>
+                            </button>
+                         </div>
+                         <p class="text-sm mb-2">Based on your interests, here's how this object connects to another:</p>
+                         <div class="connection-vis">
+                             <img id="related-img-1" src="" alt="Current Object" onerror="this.onerror=null; this.src='https://placehold.co/80x80/cccccc/333333?text=Err'; this.classList.add('error');">
+                             <span class="connector">&leftrightarrow;</span>
+                             <img id="related-img-2" src="" alt="Related Object" onerror="this.onerror=null; this.src='https://placehold.co/80x80/cccccc/333333?text=Err'; this.classList.add('error');">
+                         </div>
+                         <p id="related-explanation" class="text-xs text-gray-600 mt-2">Explanation of the connection appears here.</p>
+                    </div>
+
+                    <button data-action="askQuestion" class="action-btn btn w-full bg-purple-100 hover:bg-purple-200 text-purple-800 border-purple-300">
+                        <i class="fas fa-question-circle fa-fw"></i> Ask a Question
+                    </button>
+                     <div id="response-ask-question" class="ai-response" style="border-color: #a78bfa;">
+                         <div class="response-title text-purple-700">
+                            <span>AI Answer:</span>
+                             <button class="btn-speak speak-trigger" data-speak-target="response-ask-question" title="Read answer aloud">
+                                <i class="fas fa-volume-high"></i>
+                            </button>
+                         </div>
+                         <p class="text-sm">Placeholder text simulating an answer to a common question.</p>
+                    </div>
+                </div>
+
+                <div id="trivia-container" class="trivia-section">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">Trivia Time! 🧠</h3>
+                    <p id="trivia-question" class="trivia-question">Trivia question goes here?</p>
+                    <div id="trivia-options" class="trivia-options space-y-2">
+                        </div>
+                    <div id="trivia-feedback" class="trivia-feedback" style="display: none;"></div>
+                </div>
+
+            </div> </div>
+
+    </div> <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- State Variables ---
+            const userSelections = { age: null, theme: null };
+            let currentObjectData = null;
+            let currentObjectId = null;
+            let currentTourRoute = [];
+            let visitedPoints = new Set();
+            let triviaAnswered = false;
+
+            // --- DOM Elements ---
+            const screens = { start: document.getElementById('start-screen'), map: document.getElementById('map-screen'), objectDetail: document.getElementById('object-detail-screen') };
+            const startTourBtn = document.getElementById('start-tour-btn');
+            const startError = document.getElementById('start-error');
+            const ageButtons = document.querySelectorAll('.age-btn');
+            const themeButtons = document.querySelectorAll('.theme-btn');
+            const mapContainer = document.getElementById('map-container');
+            const mapPoints = document.querySelectorAll('.map-point');
+            const mapRouteLine = document.getElementById('map-route-line');
+            const backToStartBtn = document.getElementById('back-to-start-btn');
+            const backToMapBtn = document.getElementById('back-to-map-btn');
+            const objectDetailTitle = document.getElementById('object-detail-title');
+            const objectContent = document.getElementById('object-content');
+            const objectImage = document.getElementById('object-image');
+            const objectTitle = document.getElementById('object-title');
+            const objectDescription = document.getElementById('object-description');
+            const actionButtons = document.querySelectorAll('.action-btn');
+            const aiResponses = { learnMore: document.getElementById('response-learn-more'), relatedObjects: document.getElementById('response-related-objects'), askQuestion: document.getElementById('response-ask-question') };
+            const relatedImg1 = document.getElementById('related-img-1');
+            const relatedImg2 = document.getElementById('related-img-2');
+            const relatedExplanation = document.getElementById('related-explanation');
+            const triviaContainer = document.getElementById('trivia-container');
+            const triviaQuestion = document.getElementById('trivia-question');
+            const triviaOptions = document.getElementById('trivia-options');
+            const triviaFeedback = document.getElementById('trivia-feedback');
+            const ttsUnavailableMsg = document.getElementById('tts-unavailable');
+            const speakTriggers = document.querySelectorAll('.speak-trigger');
+
+
+            // --- Text-to-Speech Setup ---
+            const synth = window.speechSynthesis;
+            let utterance = null;
+            const ttsAvailable = (synth && typeof SpeechSynthesisUtterance !== 'undefined');
+
+            if (!ttsAvailable) {
+                ttsUnavailableMsg.style.display = 'block';
+                speakTriggers.forEach(btn => btn.style.display = 'none');
+            }
+
+            // --- Museum Object Data (Using new image filenames) ---
+            const imageBasePath = './images/'; // Define base path for images
+            const museumObjects = {
+                object1: {
+                    id: 'object1',
+                    image: imageBasePath + "object_ancient_jar.jpg", // Updated path
+                    mapPosition: { top: '15%', left: '20%' },
+                    default: { title: "Ancient Clay Jar", description: "A well-preserved jar from the Canaanite period, used for storing grains or liquids 🌾.", learnMore: "Wheel-throwing techniques indicate craftsmanship. Olive oil traces found inside! 🏺", relatedObjectsText: "Connects to 'object3' (Roman Glass) via ancient trade routes.", relatedObjectId: 'object3', askQuestion: "AI: Sourced locally from Judean Hills clay, dates to ~1500 BCE." },
+                    content: { /* Add specific content as before */ },
+                    trivia: { question: "What was likely stored in this type of jar?", options: ["Gold coins 💰", "Olive oil or grain 🌾", "Colorful paints 🎨"], correct: 1 }
+                },
+                object2: {
+                    id: 'object2',
+                    image: imageBasePath + "object_abstract_sculpture.jpg", // Updated path
+                    mapPosition: { top: '30%', left: '45%' },
+                    default: { title: "Abstract Sculpture 'Forms'", description: "Mid-20th-century bronze sculpture exploring shape and negative space.", learnMore: "Influenced by European modernism. Notice the rough vs. smooth texture contrast.", relatedObjectsText: "Related to 'object4' (Light Installation) via 'Modern Art' theme.", relatedObjectId: 'object4', askQuestion: "AI: The patina (color) was achieved with chemical treatments." },
+                    content: { /* Add specific content */ },
+                    trivia: { question: "What art movement influenced this sculpture?", options: ["Impressionism", "Surrealism", "Modernism ✨"], correct: 2 }
+                },
+                object3: {
+                    id: 'object3',
+                    image: imageBasePath + "object_roman_glass.jpg", // Updated path
+                    mapPosition: { top: '25%', left: '75%' },
+                    default: { title: "Roman Glass Vial", description: "Delicate glass vial from the Roman period, maybe for perfumes 🧴.", learnMore: "The rainbow colors (iridescence) formed over centuries in the soil! 🌈", relatedObjectsText: "Connects to 'object1' (Clay Jar) via trade routes.", relatedObjectId: 'object1', askQuestion: "AI: Tiny vials like this were luxury items, sometimes worn as pendants." },
+                    content: { /* Add specific content */ },
+                    trivia: { question: "How did the glass get its rainbow colors?", options: ["Painted by Romans", "Natural reaction with soil ✨", "Magic spell 🧙"], correct: 1 }
+                },
+                object4: {
+                    id: 'object4',
+                    image: imageBasePath + "object_light_installation.jpg", // Updated path
+                    mapPosition: { top: '55%', left: '15%' },
+                    default: { title: "Contemporary Installation 'Light'", description: "A recent installation using LED lights and mixed media for an immersive experience.", learnMore: "Lights respond subtly to ambient sound levels 🎶, making it dynamic.", relatedObjectsText: "Linked to 'object2' (Sculpture) in exploring modern expression.", relatedObjectId: 'object2', askQuestion: "AI: Uses energy-efficient LEDs and recycled materials ♻️." },
+                    content: { /* Add specific content */ },
+                    trivia: { question: "What makes this light installation 'dynamic'?", options: ["It changes color randomly", "It responds to sound 🔊", "It moves around the room"], correct: 1 }
+                },
+                object5: {
+                    id: 'object5',
+                    image: imageBasePath + "object_mosaic_fragment.jpg", // Updated path
+                    mapPosition: { top: '60%', left: '50%' },
+                    default: { title: "Byzantine Mosaic Fragment", description: "Part of a larger floor mosaic from a Byzantine-era building ⛪.", learnMore: "Made from tiny colored stone cubes called tesserae. Shows intricate patterns.", relatedObjectsText: "Connects to 'object7' (Ossuary) by representing later periods of settlement.", relatedObjectId: 'object7', askQuestion: "AI: Mosaics often depicted religious scenes, daily life, or geometric designs." },
+                    content: { /* Add specific content */ },
+                    trivia: { question: "What are the small cubes in a mosaic called?", options: ["Bricks", "Tiles", "Tesserae ✨"], correct: 2 }
+                },
+                object6: {
+                    id: 'object6',
+                    image: imageBasePath + "object_oil_lamp.jpg", // Updated path
+                    mapPosition: { top: '50%', left: '80%' },
+                    default: { title: "Herodian Oil Lamp", description: "A common clay oil lamp from the Second Temple period (Herodian).", learnMore: "Simple design, wheel-made, used olive oil as fuel. Essential household item! 💡", relatedObjectsText: "Connects to 'object1' (Jar) as common pottery from ancient daily life.", relatedObjectId: 'object1', askQuestion: "AI: Lamps like these provided light after sunset in homes." },
+                    content: { /* Add specific content */ },
+                    trivia: { question: "What fuel was typically used in this lamp?", options: ["Animal Fat", "Olive Oil 🫒", "Magic Potion"], correct: 1 }
+                },
+                object7: {
+                    id: 'object7',
+                    image: imageBasePath + "object_stone_ossuary.jpg", // Updated path
+                    mapPosition: { top: '80%', left: '30%' },
+                    default: { title: "Decorated Stone Ossuary", description: "A limestone box (ossuary) used for secondary burial of bones, common in the late Second Temple period.", learnMore: "Often decorated with geometric patterns like rosettes 🌸. Some had inscriptions.", relatedObjectsText: "Connects to 'object5' (Mosaic) representing different burial/building traditions.", relatedObjectId: 'object5', askQuestion: "AI: This practice was specific to Jewish customs of the time." },
+                    content: { /* Add specific content */ },
+                    trivia: { question: "What was an ossuary used for?", options: ["Storing Grain", "Secondary burial of bones 🦴", "Holding Water"], correct: 1 }
+                },
+                object8: {
+                    id: 'object8',
+                    image: imageBasePath + "object_landscape_painting.jpg", // Updated path
+                    mapPosition: { top: '75%', left: '65%' },
+                    default: { title: "Israeli Landscape Painting", description: "A 20th-century painting depicting a local landscape, capturing the light and colors of the region.", learnMore: "Reflects the 'Sabra' generation's connection to the land. Note the expressive brushwork.", relatedObjectsText: "Connects to 'object2' (Sculpture) within the modern Israeli art collection.", relatedObjectId: 'object2', askQuestion: "AI: Artists often used bold colors to represent the intense sunlight ☀️." },
+                    content: { /* Add specific content */ },
+                    trivia: { question: "What subject is common in early Israeli painting?", options: ["Abstract Shapes", "European Cities", "Local Landscapes 🏞️"], correct: 2 }
+                }
+            };
+
+             // --- Tour Route Definitions ---
+            const tourRoutes = {
+                 Child: {
+                    Archaeology: ['object1', 'object6', 'object3', 'object5'],
+                    ModernArt: ['object2', 'object8', 'object4'],
+                    Connections: ['object1', 'object3', 'object6', 'object8']
+                },
+                Teen: {
+                    Archaeology: ['object1', 'object6', 'object7', 'object3', 'object5'],
+                    ModernArt: ['object2', 'object4', 'object8'],
+                    Connections: ['object1', 'object3', 'object2', 'object4', 'object8']
+                },
+                Adult: {
+                    Archaeology: ['object1', 'object6', 'object3', 'object7', 'object5'],
+                    ModernArt: ['object2', 'object4', 'object8'],
+                    Connections: ['object1', 'object7', 'object5', 'object2', 'object8']
+                }
+            };
+
+
+            // --- Functions ---
+
+            function showScreen(screenId) {
+                stopSpeech();
+                Object.values(screens).forEach(screen => screen.classList.remove('active'));
+                if (screens[screenId]) {
+                    screens[screenId].classList.add('active');
+                    document.getElementById('app-container').scrollTop = 0;
+                    if(screenId === 'objectDetail') objectContent.scrollTop = 0;
+                } else { console.error("Screen ID not found:", screenId); }
+            }
+
+            function handleSelection(event, groupClass) {
+                const button = event.target.closest('button');
+                if (!button) return;
+                const group = button.dataset.group;
+                const value = button.dataset.value;
+                userSelections[group] = value;
+                document.querySelectorAll(`.${groupClass}`).forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+                startTourBtn.disabled = !(userSelections.age && userSelections.theme);
+                startError.textContent = '';
+            }
+
+            function generateTourRoute() {
+                const age = userSelections.age || 'Adult';
+                const theme = userSelections.theme || 'Archaeology';
+                currentTourRoute = tourRoutes[age]?.[theme] || tourRoutes.Adult.Archaeology;
+                console.log(`Generated tour route for ${age}/${theme}:`, currentTourRoute);
+                visitedPoints.clear();
+            }
+
+            // *** UPDATED FUNCTION ***
+            function updateMapView() {
+                const routePoints = [];
+                // First loop: Iterate over ALL map points to reset their styles
+                mapPoints.forEach(pointNode => { // Use 'pointNode' as the variable for each element in this loop
+                    pointNode.classList.remove('active-tour', 'visited');
+                    pointNode.style.cursor = 'not-allowed';
+                    pointNode.style.opacity = '0.6';
+                    pointNode.textContent = ''; // Clear any previous numbering
+                });
+
+                // Second loop: Iterate ONLY over the points in the current tour route
+                currentTourRoute.forEach((objId, index) => {
+                    // Find the specific map point element corresponding to the object ID
+                    const pointElement = mapContainer.querySelector(`.map-point[data-object-id="${objId}"]`);
+                    if (pointElement) { // Make sure the element was found
+                        // Apply active tour styles
+                        pointElement.classList.add('active-tour');
+                        pointElement.style.cursor = 'pointer';
+                        pointElement.style.opacity = '1';
+                        pointElement.textContent = index + 1; // Number the point according to tour order
+
+                        // Apply visited style if the point has been visited
+                        if (visitedPoints.has(objId)) {
+                            pointElement.classList.add('visited');
+                        }
+
+                        // Get coordinates for drawing the SVG route line
+                        const objData = museumObjects[objId];
+                        if (objData && objData.mapPosition) {
+                           const topPercent = parseFloat(objData.mapPosition.top);
+                           const leftPercent = parseFloat(objData.mapPosition.left);
+                           // Add coordinates (offset slightly to center the line on the point)
+                           routePoints.push(`${leftPercent + 1.5},${topPercent + 1.5}`);
+                        }
+                    } else {
+                        console.warn(`Map point element not found for object ID: ${objId}`);
+                    }
+                });
+
+                // Update the SVG polyline with the calculated points
+                mapRouteLine.setAttribute('points', routePoints.join(' '));
+
+                // Style the route line based on the selected theme
+                let strokeColor = '#3b82f6', strokeDashArray = '4,3'; // Default style
+                switch(userSelections.theme) {
+                    case 'Archaeology': strokeColor = '#f97316'; strokeDashArray = '5,3'; break;
+                    case 'Modern Art': strokeColor = '#8b5cf6'; strokeDashArray = '1,4'; break;
+                    case 'Connections': strokeColor = '#10b981'; strokeDashArray = '6,2'; break;
+                }
+                mapRouteLine.setAttribute('stroke', strokeColor);
+                mapRouteLine.setAttribute('stroke-dasharray', strokeDashArray);
+            }
+
+
+            function getPersonalizedContent(objectId) {
+                const baseObject = museumObjects[objectId];
+                if (!baseObject) return null;
+                const selectionKey = `${userSelections.age}_${userSelections.theme}`;
+                return {
+                    ...baseObject.default,
+                    ...(baseObject.content?.[selectionKey] || {}),
+                    image: baseObject.image, // Use the path from the data structure
+                    id: baseObject.id,
+                    trivia: baseObject.trivia
+                };
+            }
+
+            function showObjectDetail(objectId) {
+                stopSpeech();
+                currentObjectId = objectId;
+                currentObjectData = getPersonalizedContent(objectId);
+                triviaAnswered = false;
+
+                // Reset error class on image elements
+                objectImage.classList.remove('error');
+                relatedImg1.classList.remove('error');
+                relatedImg2.classList.remove('error');
+
+                if (!currentObjectData) {
+                    console.error("Data not found for:", objectId, userSelections);
+                    objectDetailTitle.textContent = "Error";
+                    objectTitle.textContent = "Object Not Found";
+                    objectDescription.textContent = "Details unavailable. 😢";
+                    objectImage.src = ``; // Clear src on error
+                    objectImage.alt = "Error loading object";
+                    objectImage.classList.add('error'); // Add error class for styling
+                    actionButtons.forEach(btn => btn.style.display = 'none');
+                    Object.values(aiResponses).forEach(response => response.style.display = 'none');
+                    triviaContainer.style.display = 'none';
+                } else {
+                    objectDetailTitle.textContent = currentObjectData.title;
+                    objectTitle.textContent = currentObjectData.title;
+                    objectDescription.textContent = currentObjectData.description;
+                    // Set the main object image source using the path from data
+                    objectImage.src = currentObjectData.image;
+                    objectImage.alt = currentObjectData.title;
+
+                    aiResponses.learnMore.querySelector('p.text-sm').textContent = currentObjectData.learnMore || "More details unavailable.";
+                    aiResponses.relatedObjects.querySelector('p.text-sm').textContent = currentObjectData.relatedObjectsText || "Connection details unavailable.";
+                    aiResponses.askQuestion.querySelector('p.text-sm').textContent = currentObjectData.askQuestion || "Simulated answer unavailable.";
+
+                    // Update connection visualization images using paths from data
+                    relatedImg1.src = currentObjectData.image; // Current object image
+                    relatedImg1.alt = currentObjectData.title;
+                    const relatedObjId = currentObjectData.relatedObjectId;
+                    const relatedObj = museumObjects[relatedObjId];
+                    if (relatedObj) {
+                        relatedImg2.src = relatedObj.image; // Related object image path
+                        relatedImg2.alt = `Related: ${relatedObj.default.title}`;
+                        relatedExplanation.textContent = `This visual shows a link to '${relatedObj.default.title}'. ${currentObjectData.relatedObjectsText || ''}`;
+                    } else {
+                         relatedImg2.src = ''; // Clear src
+                         relatedImg2.alt = 'Related object not found';
+                         relatedImg2.classList.add('error'); // Add error class
+                         relatedExplanation.textContent = currentObjectData.relatedObjectsText || "Connection details unavailable.";
+                    }
+
+                    if (currentObjectData.trivia) {
+                        triviaContainer.style.display = 'block';
+                        triviaQuestion.textContent = currentObjectData.trivia.question;
+                        triviaOptions.innerHTML = '';
+                        currentObjectData.trivia.options.forEach((option, index) => {
+                            const button = document.createElement('button');
+                            button.textContent = option;
+                            button.dataset.index = index;
+                            button.classList.add('trivia-option-btn');
+                            triviaOptions.appendChild(button);
+                        });
+                        triviaFeedback.style.display = 'none';
+                        triviaFeedback.textContent = '';
+                        triviaFeedback.className = 'trivia-feedback';
+                    } else {
+                        triviaContainer.style.display = 'none';
+                    }
+
+                    Object.values(aiResponses).forEach(response => response.style.display = 'none');
+                    actionButtons.forEach(btn => btn.style.display = 'inline-flex');
+                }
+                showScreen('objectDetail');
+                visitedPoints.add(objectId);
+            }
+
+            function toggleAIResponse(action) {
+                stopSpeech();
+                const responseDiv = aiResponses[action];
+                if (responseDiv) {
+                    const isVisible = responseDiv.style.display === 'block';
+                    Object.values(aiResponses).forEach(response => response.style.display = 'none');
+                    if (!isVisible) {
+                        responseDiv.style.display = 'block';
+                        responseDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                }
+            }
+
+            function handleTriviaAnswer(selectedIndex) {
+                if (triviaAnswered || !currentObjectData || !currentObjectData.trivia) return;
+                triviaAnswered = true;
+                const correctAnswerIndex = currentObjectData.trivia.correct;
+                const optionsButtons = triviaOptions.querySelectorAll('button');
+                optionsButtons.forEach(button => button.disabled = true);
+
+                if (parseInt(selectedIndex) === correctAnswerIndex) {
+                    triviaFeedback.textContent = "Correct! 🎉 Well done!";
+                    triviaFeedback.className = 'trivia-feedback feedback-correct';
+                     optionsButtons[selectedIndex].style.backgroundColor = '#bbf7d0';
+                } else {
+                    triviaFeedback.textContent = `Not quite! The correct answer was: ${currentObjectData.trivia.options[correctAnswerIndex]} 🤔`;
+                    triviaFeedback.className = 'trivia-feedback feedback-incorrect';
+                    optionsButtons[selectedIndex].style.backgroundColor = '#fecaca';
+                    optionsButtons[correctAnswerIndex].style.backgroundColor = '#bbf7d0';
+                }
+                triviaFeedback.style.display = 'block';
+                triviaFeedback.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            // --- Text-to-Speech Functions ---
+            function speakText(textElementId) {
+                if (!ttsAvailable) return;
+                const element = document.getElementById(textElementId);
+                let textToSpeak = '';
+                if (element) {
+                    if (element.classList.contains('ai-response')) {
+                        const pElement = element.querySelector('p.text-sm');
+                        textToSpeak = pElement ? pElement.textContent : '';
+                    } else { textToSpeak = element.textContent; }
+                }
+
+                if (synth.speaking) {
+                    stopSpeech();
+                    if (utterance && utterance.text === textToSpeak) { return; }
+                 }
+
+                if (textToSpeak) {
+                    setTimeout(() => {
+                        utterance = new SpeechSynthesisUtterance(textToSpeak);
+                        utterance.lang = 'en-US';
+                        const triggerButton = document.querySelector(`.speak-trigger[data-speak-target="${textElementId}"]`);
+                        utterance.onstart = () => { if(triggerButton) triggerButton.classList.add('speaking'); };
+                        utterance.onend = () => { if(triggerButton) triggerButton.classList.remove('speaking'); utterance = null; };
+                        utterance.onerror = (event) => { console.error('Speech error:', event.error); if(triggerButton) triggerButton.classList.remove('speaking'); utterance = null; };
+                        synth.speak(utterance);
+                    }, 100);
+                }
+            }
+
+            function stopSpeech() {
+                if (ttsAvailable && synth.speaking) {
+                    synth.cancel();
+                    speakTriggers.forEach(btn => btn.classList.remove('speaking'));
+                }
+                utterance = null;
+            }
+
+            // --- Event Listeners ---
+            document.getElementById('start-screen').addEventListener('click', (e) => {
+                if (e.target.matches('.age-btn, .age-btn *')) handleSelection(e, 'age-btn');
+                else if (e.target.matches('.theme-btn, .theme-btn *')) handleSelection(e, 'theme-btn');
+            });
+            startTourBtn.addEventListener('click', () => {
+                if (!userSelections.age || !userSelections.theme) { startError.textContent = 'Please select both age and theme.'; return; }
+                startError.textContent = ''; generateTourRoute(); updateMapView(); showScreen('map');
+            });
+            mapContainer.addEventListener('click', (e) => {
+                const point = e.target.closest('.map-point.active-tour');
+                if (point) { const objectId = point.dataset.objectId; showObjectDetail(objectId); }
+            });
+            backToStartBtn.addEventListener('click', () => {
+                 userSelections.age = null; userSelections.theme = null;
+                 ageButtons.forEach(btn => btn.classList.remove('selected'));
+                 themeButtons.forEach(btn => btn.classList.remove('selected'));
+                 startTourBtn.disabled = true; startError.textContent = '';
+                 currentTourRoute = []; showScreen('start');
+            });
+            backToMapBtn.addEventListener('click', () => {
+                updateMapView(); showScreen('map');
+                currentObjectData = null; currentObjectId = null;
+                Object.values(aiResponses).forEach(response => response.style.display = 'none');
+            });
+            actionButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const targetButton = e.target.closest('.action-btn'); if (!targetButton) return;
+                    const action = targetButton.dataset.action; toggleAIResponse(action);
+                });
+            });
+            triviaOptions.addEventListener('click', (e) => {
+                const button = e.target.closest('.trivia-option-btn');
+                if (button && !button.disabled) { handleTriviaAnswer(button.dataset.index); }
+            });
+            speakTriggers.forEach(button => {
+                 button.addEventListener('click', (e) => {
+                     const targetButton = e.target.closest('.speak-trigger');
+                     const targetId = targetButton.dataset.speakTarget; speakText(targetId);
+                 });
+            });
+            objectContent.addEventListener('scroll', stopSpeech, { passive: true });
+            document.body.addEventListener('click', (e) => { /* Stop speech if clicking outside relevant areas? */ }, true);
+
+            // --- Initial Setup ---
+            showScreen('start');
+
+        });
+    </script>
+
+</body>
+</html>
